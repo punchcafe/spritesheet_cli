@@ -14,8 +14,26 @@ struct AnimationCell {
 fn search(directory: &str, sheet_name: &str) -> HashMap<String, Vec<AnimationCell>> {
     let pattern = regex_expression(sheet_name);
     let entries = recursive_search(directory.to_string(), &pattern);
-    print!("{:?}", entries);
+    let result_map = collect_as_map(entries);
+    println!("{:?}", result_map);
     HashMap::new()
+}
+
+
+
+fn collect_as_map(animation_cells: Vec<AnimationCell>) -> HashMap<String, Vec<AnimationCell>> {
+    let mut result_map : HashMap<String, Vec<AnimationCell>>= HashMap::new();
+    for cell in animation_cells {
+        let cells =  match result_map.get_mut(&cell.animation_name) {
+            Some(cells) => cells,
+            None => {
+                result_map.insert(cell.animation_name.clone(), Vec::new());
+                result_map.get_mut(&cell.animation_name).expect("unexpected error")
+            }
+        };
+        cells.push(cell);
+    }
+    result_map
 }
 
 fn recursive_search(path_str: String, valid_file_pattern: &Regex) -> Vec<AnimationCell> {
