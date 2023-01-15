@@ -4,11 +4,11 @@ use std::fs;
 use std::path::Path;
 use regex::Regex;
 
-
+#[derive(Debug)]
 struct AnimationCell {
-    sprite_sheet_name: String,
     animation_name: String,
-    cell_number: u8
+    cell_number: u8,
+    file_path: String
 }
 
 fn search(directory: &str, sheet_name: &str) -> HashMap<String, Vec<AnimationCell>> {
@@ -18,7 +18,7 @@ fn search(directory: &str, sheet_name: &str) -> HashMap<String, Vec<AnimationCel
     HashMap::new()
 }
 
-fn recursive_search(path_str: String, valid_file_pattern: &Regex) -> Vec<String> {
+fn recursive_search(path_str: String, valid_file_pattern: &Regex) -> Vec<AnimationCell> {
     let path = Path::new(&path_str);
     if path.is_dir() {
         fs::read_dir(&path)
@@ -33,10 +33,19 @@ fn recursive_search(path_str: String, valid_file_pattern: &Regex) -> Vec<String>
             .to_string(),
             valid_file_pattern
         ))
-        .collect::<Vec<String>>()
+        .collect::<Vec<AnimationCell>>()
     } else {
         if valid_file_pattern.is_match(&path_str) {
-            vec![path_str]
+            let cap = valid_file_pattern.captures_iter(&path_str)
+                .next()
+                .expect("Couldn't find a capture group");
+            let animation_name = &cap[1];
+            let cell_number :u8 = cap[2].parse::<u8>().unwrap();
+            vec![AnimationCell{
+                animation_name: animation_name.to_string(), 
+                file_path: path_str, 
+                cell_number
+            }]
         } else {
             vec![]
         }
@@ -44,7 +53,7 @@ fn recursive_search(path_str: String, valid_file_pattern: &Regex) -> Vec<String>
 }
 
 fn regex_expression(sheet_name: &str) -> Regex {
-    let pattern = format!("{sheet_name}\\.([^\\.])+\\.(\\d)+\\.(png)");
+    let pattern = format!("{sheet_name}\\.([^\\.]+)\\.(\\d+)\\.(png)");
     println!("pattern: {pattern}");
     Regex::new(&pattern[..]).unwrap()
 }
