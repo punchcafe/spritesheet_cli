@@ -14,8 +14,13 @@ struct AnimationCell {
 fn search(directory: &str, sheet_name: &str) -> HashMap<String, Vec<AnimationCell>> {
     let pattern = regex_expression(sheet_name);
     let entries = recursive_search(directory.to_string(), &pattern);
+    let width = entries.iter()
+        .map(|entry| entry.cell_number)
+        .max()
+        .expect("No entries found");
     let result_map = collect_as_map(entries);
-    println!("{:?}", result_map);
+    let height = result_map.keys().len();
+    println!("Sprite sheet tile size: {:?}x{:?}", width, height);
     HashMap::new()
 }
 
@@ -32,6 +37,7 @@ fn collect_as_map(animation_cells: Vec<AnimationCell>) -> HashMap<String, Vec<An
             }
         };
         cells.push(cell);
+        cells.sort_by_key(|cell| cell.cell_number);
     }
     result_map
 }
