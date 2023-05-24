@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::vec::Vec;
 use std::fs;
+use std::cmp;
 use std::path::Path;
 use regex::Regex;
+use image::{RgbImage, GenericImage};
 
 #[derive(Debug)]
 struct AnimationCell {
@@ -11,12 +13,44 @@ struct AnimationCell {
     file_path: String
 }
 
+fn render_cell(buffer: &mut RgbImage, cell: &AnimationCell) -> () {
+    let image = image::open(cell.file_path.to_string())
+    .expect("aaah!")
+    .to_rgb8();
+    let cell_number: u32 = cell.cell_number.into();
+    let x = (cell_number - 1) * image.width() ;
+    buffer.copy_from(&image, x, 1).expect("aaah!");
+}
+
+fn render_result(cells: HashMap<String, Vec<AnimationCell>>) -> () {
+    let mut max_size: u32 = 0;
+    let mut sample_size = (0,0);
+
+    for (_key, value) in &cells {
+        max_size = cmp::max(value.len() as u32, max_size);
+        sample_size = image::image_dimensions(value.get(0)
+            .expect("aah")
+            .file_path
+            .to_owned())
+        .expect("aaaah!");
+    }
+
+    let mut canvas = RgbImage::new(sample_size.0 * max_size, sample_size.1 + 10);
+    for (_key, value) in cells {
+        for cell in value {
+            println!("Rendering individual");
+            render_cell(&mut canvas, &cell);
+            canvas.save("./sample_output.png").expect("aaah!");
+        }
+    }    
+}
+
 fn search(directory: &str, sheet_name: &str) -> HashMap<String, Vec<AnimationCell>> {
     let pattern = regex_expression(sheet_name);
     let entries = recursive_search(directory.to_string(), &pattern);
     let result_map = collect_as_map(entries);
     println!("{:?}", result_map);
-    HashMap::new()
+    result_map
 }
 
 
@@ -77,5 +111,5 @@ fn regex_expression(sheet_name: &str) -> Regex {
 }
 
 fn main() {
-    search("./sample", "skater_base");
+    render_result(search("./sample", "skater_base"));
 }
