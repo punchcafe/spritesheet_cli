@@ -13,13 +13,14 @@ struct AnimationCell {
     file_path: String
 }
 
-fn render_cell(buffer: &mut RgbImage, cell: &AnimationCell) -> () {
+fn render_cell(buffer: &mut RgbImage, cell: &AnimationCell, row_number: u32) -> () {
     let image = image::open(cell.file_path.to_string())
     .expect("aaah!")
     .to_rgb8();
     let cell_number: u32 = cell.cell_number.into();
     let x = (cell_number - 1) * image.width() ;
-    buffer.copy_from(&image, x, 1).expect("aaah!");
+    let y = (row_number - 1) * image.height();
+    buffer.copy_from(&image, x, y).expect("aaah!");
 }
 
 fn render_result(cells: HashMap<String, Vec<AnimationCell>>) -> () {
@@ -35,23 +36,23 @@ fn render_result(cells: HashMap<String, Vec<AnimationCell>>) -> () {
         .expect("aaaah!");
     }
 
-    let mut canvas = RgbImage::new(sample_size.0 * max_size, sample_size.1 + 10);
+    let number_of_rows: u32 = cells.keys().len().try_into().expect("aaah!");
+    let mut row_number = 1;
+
+    let mut canvas = RgbImage::new(sample_size.0 * max_size, (sample_size.1) * number_of_rows);
     for (_key, value) in cells {
         for cell in value {
             println!("Rendering individual");
-            render_cell(&mut canvas, &cell);
+            render_cell(&mut canvas, &cell, row_number);
             canvas.save("./sample_output.png").expect("aaah!");
         }
+        row_number = row_number + 1;
     }    
 }
 
 fn search(directory: &str, sheet_name: &str) -> HashMap<String, Vec<AnimationCell>> {
     let pattern = regex_expression(sheet_name);
     let entries = recursive_search(directory.to_string(), &pattern);
-    let width = entries.iter()
-        .map(|entry| entry.cell_number)
-        .max()
-        .expect("No entries found");
     let result_map = collect_as_map(entries);
     println!("{:?}", result_map);
     result_map
