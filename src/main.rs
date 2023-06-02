@@ -18,7 +18,9 @@ type SheetDescriptor = HashMap<String, Vec<AnimationCell>>;
 
 #[derive(Debug)]
 struct RunConfig {
-    to_width: u32
+    to_width: u32,
+    cwd: String,
+    sheet_name: String
 }
 
 struct SheetDetails {
@@ -76,10 +78,7 @@ fn render_cell(buffer: &mut RgbImage, cell: &AnimationCell, row_number: u32, she
     buffer.copy_from(&image, x, y).expect("aaah!");
 }
 
-fn render_result(cells: HashMap<String, Vec<AnimationCell>>) -> () {
-    let config = RunConfig{
-        to_width: 256
-    };
+fn render_result(cells: HashMap<String, Vec<AnimationCell>>, config: &RunConfig) -> () {
 
     let sheet_details = sheet_details(&cells);
     let sheet_details = apply_scale(sheet_details, config.to_width);
@@ -92,10 +91,10 @@ fn render_result(cells: HashMap<String, Vec<AnimationCell>>) -> () {
         for cell in value {
             println!("Rendering individual");
             render_cell(&mut canvas, &cell, row_number, &sheet_details);
-            canvas.save("./sample_output.png").expect("aaah!");
         }
         row_number = row_number + 1;
     }    
+    canvas.save("./sample_output.png").expect("aaah!");
 }
 
 fn search(directory: &str, sheet_name: &str) -> HashMap<String, Vec<AnimationCell>> {
@@ -165,5 +164,11 @@ fn regex_expression(sheet_name: &str) -> Regex {
 }
 
 fn main() {
-    render_result(search("./sample", "skater_base"));
+    let config = RunConfig{
+        to_width: 512,
+        cwd: std::env::current_dir().expect("aaaah!").to_owned().to_str().expect("aaah").to_owned(),
+        sheet_name: "skater_base".to_owned()
+    };
+
+    render_result(search(&config.cwd, &config.sheet_name), &config);
 }
