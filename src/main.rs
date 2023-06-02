@@ -6,6 +6,7 @@ use std::path::Path;
 use regex::Regex;
 use image::{RgbImage, GenericImage};
 use image::imageops::FilterType;
+use argparse::{ArgumentParser, Store};
 
 #[derive(Debug)]
 struct AnimationCell {
@@ -20,7 +21,8 @@ type SheetDescriptor = HashMap<String, Vec<AnimationCell>>;
 struct RunConfig {
     to_width: u32,
     cwd: String,
-    sheet_name: String
+    sheet_name: String,
+    out: String
 }
 
 struct SheetDetails {
@@ -89,19 +91,17 @@ fn render_result(cells: HashMap<String, Vec<AnimationCell>>, config: &RunConfig)
 
     for (_key, value) in cells {
         for cell in value {
-            println!("Rendering individual");
             render_cell(&mut canvas, &cell, row_number, &sheet_details);
         }
         row_number = row_number + 1;
     }    
-    canvas.save("./sample_output.png").expect("aaah!");
+    canvas.save(config.out.as_str()).expect("aaah!");
 }
 
 fn search(directory: &str, sheet_name: &str) -> HashMap<String, Vec<AnimationCell>> {
     let pattern = regex_expression(sheet_name);
     let entries = recursive_search(directory.to_string(), &pattern);
     let result_map = collect_as_map(entries);
-    println!("{:?}", result_map);
     result_map
 }
 
@@ -163,12 +163,39 @@ fn regex_expression(sheet_name: &str) -> Regex {
     Regex::new(&pattern[..]).unwrap()
 }
 
-fn main() {
-    let config = RunConfig{
-        to_width: 512,
-        cwd: std::env::current_dir().expect("aaaah!").to_owned().to_str().expect("aaah").to_owned(),
-        sheet_name: "skater_base".to_owned()
-    };
+fn run_config() -> RunConfig {
+    let mut width: String = "512".to_string();
+    let mut sheet_name = String::new();
+    let cwd = std::env::current_dir().expect("aaaah!").to_owned().to_str().expect("aaah").to_owned();
+    let mut out = cwd.clone();
+    out.push_str("/");
+    out.push_str(&sheet_name);
+    out.push_str(".png");
 
+    {
+        let mut ap = ArgumentParser::new();
+        ap.set_description("Creates a sprite sheet for all sprites following naming conventions.");
+        ap.refer(&mut width)
+            .add_option(&["-w", "--width"], Store,
+            "Scales all tiles to given width, preserving aspect ratio.");
+
+        ap.refer(&mut out)
+            .add_option(&["-o", "--out"], Store,
+            "Output file name.");
+        ap.refer(&mut sheet_name)
+            .add_argument("sheet_name", Store, "The name of the sprite sheet.")
+            .required();
+        ap.parse_args_or_exit();
+    }
+    RunConfig{
+        to_width: width.parse::<u32>().expect("Invalid width value"),
+        cwd,
+        sheet_name,
+        out
+    }
+}
+
+fn main() {
+    let config = run_config();
     render_result(search(&config.cwd, &config.sheet_name), &config);
 }
