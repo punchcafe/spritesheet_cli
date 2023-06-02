@@ -5,6 +5,7 @@ use std::cmp;
 use std::path::Path;
 use regex::Regex;
 use image::{RgbImage, GenericImage};
+use image::imageops::FilterType;
 
 #[derive(Debug)]
 struct AnimationCell {
@@ -13,21 +14,25 @@ struct AnimationCell {
     file_path: String
 }
 
-fn render_cell(buffer: &mut RgbImage, cell: &AnimationCell, row_number: u32) -> () {
-    let image = image::open(cell.file_path.to_string())
-    .expect("aaah!")
-    .to_rgb8();
-    let cell_number: u32 = cell.cell_number.into();
-    let x = (cell_number - 1) * image.width() ;
-    let y = (row_number - 1) * image.height();
-    buffer.copy_from(&image, x, y).expect("aaah!");
+type SheetDescriptor = HashMap<String, Vec<AnimationCell>>;
+
+#[derive(Debug)]
+struct RunConfig {
+    to_width: u32
 }
 
-fn render_result(cells: HashMap<String, Vec<AnimationCell>>) -> () {
+struct SheetDetails {
+    tile_width: u32,
+    tile_height: u32,
+    total_rows: u32,
+    max_columns: u32
+}
+
+fn sheet_details(cells: &SheetDescriptor) -> SheetDetails {
     let mut max_size: u32 = 0;
     let mut sample_size = (0,0);
 
-    for (_key, value) in &cells {
+    for (_key, value) in cells {
         max_size = cmp::max(value.len() as u32, max_size);
         sample_size = image::image_dimensions(value.get(0)
             .expect("aah")
@@ -37,13 +42,56 @@ fn render_result(cells: HashMap<String, Vec<AnimationCell>>) -> () {
     }
 
     let number_of_rows: u32 = cells.keys().len().try_into().expect("aaah!");
+    SheetDetails{
+        tile_width: sample_size.0,
+        tile_height: sample_size.1,
+        max_columns: max_size,
+        total_rows: number_of_rows
+    }
+}
+
+// Implement for Sheet Details
+fn apply_scale(details: SheetDetails, to_width: u32) -> SheetDetails {
+    let divide_by = details.tile_width / to_width;
+    SheetDetails{
+        tile_width: to_width,
+        tile_height: details.tile_height / divide_by,
+        ..details
+    }
+}
+
+fn new_rgb_canvas(details: &SheetDetails) -> RgbImage {
+    RgbImage::new(details.tile_width * details.max_columns, details.tile_height * details.total_rows)
+}
+
+fn render_cell(buffer: &mut RgbImage, cell: &AnimationCell, row_number: u32, sheet_details: &SheetDetails) -> () {
+    let image = image::open(cell.file_path.to_string())
+    .expect("aaah!")
+    .to_rgb8();
+
+    let image = image::imageops::resize(&image, sheet_details.tile_width, sheet_details.tile_height, FilterType::CatmullRom);
+    let cell_number: u32 = cell.cell_number.into();
+    let x = (cell_number - 1) * sheet_details.tile_width;
+    let y = (row_number - 1) * sheet_details.tile_height;
+    buffer.copy_from(&image, x, y).expect("aaah!");
+}
+
+fn render_result(cells: HashMap<String, Vec<AnimationCell>>) -> () {
+    let config = RunConfig{
+        to_width: 256
+    };
+
+    let sheet_details = sheet_details(&cells);
+    let sheet_details = apply_scale(sheet_details, config.to_width);
+
     let mut row_number = 1;
 
-    let mut canvas = RgbImage::new(sample_size.0 * max_size, (sample_size.1) * number_of_rows);
+    let mut canvas = new_rgb_canvas(&sheet_details);
+
     for (_key, value) in cells {
         for cell in value {
             println!("Rendering individual");
-            render_cell(&mut canvas, &cell, row_number);
+            render_cell(&mut canvas, &cell, row_number, &sheet_details);
             canvas.save("./sample_output.png").expect("aaah!");
         }
         row_number = row_number + 1;
