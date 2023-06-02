@@ -4,7 +4,7 @@ use std::fs;
 use std::cmp;
 use std::path::Path;
 use regex::Regex;
-use image::{RgbImage, GenericImage};
+use image::{RgbaImage, GenericImage};
 use image::imageops::FilterType;
 use argparse::{ArgumentParser, Store};
 
@@ -64,14 +64,14 @@ fn apply_scale(details: SheetDetails, to_width: u32) -> SheetDetails {
     }
 }
 
-fn new_rgb_canvas(details: &SheetDetails) -> RgbImage {
-    RgbImage::new(details.tile_width * details.max_columns, details.tile_height * details.total_rows)
+fn new_rgb_canvas(details: &SheetDetails) -> RgbaImage {
+    RgbaImage::new(details.tile_width * details.max_columns, details.tile_height * details.total_rows)
 }
 
-fn render_cell(buffer: &mut RgbImage, cell: &AnimationCell, row_number: u32, sheet_details: &SheetDetails) -> () {
-    let image = image::open(cell.file_path.to_string())
+fn render_cell(buffer: &mut RgbaImage, cell: &AnimationCell, row_number: u32, sheet_details: &SheetDetails) -> () {
+    let image: image::ImageBuffer<image::Rgba<u8>, Vec<u8>> = image::open(cell.file_path.to_string())
     .expect("aaah!")
-    .to_rgb8();
+    .to_rgba8();
 
     let image = image::imageops::resize(&image, sheet_details.tile_width, sheet_details.tile_height, FilterType::CatmullRom);
     let cell_number: u32 = cell.cell_number.into();
@@ -94,8 +94,8 @@ fn render_result(cells: HashMap<String, Vec<AnimationCell>>, config: &RunConfig)
             render_cell(&mut canvas, &cell, row_number, &sheet_details);
         }
         row_number = row_number + 1;
+        canvas.save(config.out.as_str()).expect("aaah!");
     }    
-    canvas.save(config.out.as_str()).expect("aaah!");
 }
 
 fn search(directory: &str, sheet_name: &str) -> HashMap<String, Vec<AnimationCell>> {
